@@ -2,8 +2,81 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include <commctrl.h>
+#include <shlobj.h>
+#include <commctrl.h>
+
+#pragma comment(lib, "comctl32.lib")
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+// Global variable to store user's choice
+static int globalChoice = 0; // 0: Ask, 1: Replace All, 2: Skip All
+// Function declarations
+static BOOL FileExists(const wchar_t *path) {
+    DWORD attrs = GetFileAttributesW(path);
+    return (attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+int ShowFileConflictDialog(const wchar_t *filename) {
+    // Simple MessageBox fallback instead of TaskDialog
+    wchar_t message[MAX_PATH + 100];
+    _snwprintf(message, MAX_PATH + 100, 
+        L"文件 '%s' 已存在。\nyes替换全部，no跳过，cancel选择每个文件", filename);
+
+    int result = MessageBoxW(NULL, message, L"文件冲突",
+        MB_YESNOCANCEL | MB_ICONQUESTION);
+    
+    switch (result) {
+        case IDYES:    return 0; // Replace All
+        case IDNO:     return 1; // Skip All  
+        case IDCANCEL: return 2; // Choose per file
+        default:       return 1; // Default to Skip
+    }
+}
 
 void moveFile(const wchar_t *src, const wchar_t *dest) {
+    if (FileExists(dest)) {
+        if (globalChoice == 0) { // No global choice yet
+            int choice = ShowFileConflictDialog(dest);
+            
+            switch (choice) {
+                case 0: // Replace All
+                    globalChoice = 1;
+                    break;
+                case 1: // Skip All
+                    globalChoice = 2;
+                    return;
+                case 2: // Choose per file
+                    {
+                        SHFILEOPSTRUCTW op = {0};
+                        op.wFunc = FO_MOVE;
+                        wchar_t srcBuffer[MAX_PATH + 2] = {0};
+                        wchar_t destBuffer[MAX_PATH + 2] = {0};
+                        wcscpy(srcBuffer, src);
+                        wcscpy(destBuffer, dest);
+                        op.pFrom = srcBuffer;
+                        op.pTo = destBuffer;
+                        op.fFlags = FOF_ALLOWUNDO | FOF_WANTMAPPINGHANDLE;
+                        
+                        int result = SHFileOperationW(&op);
+                        if (result != 0) {
+                            MessageBoxW(NULL, L"移动文件失败", L"错误", MB_ICONERROR);
+                            ExitProcess(1);
+                        }
+                        return;
+                    }
+            }
+        }
+        
+        if (globalChoice == 2) { // Skip All
+            return;
+        }
+        
+        // Replace file (globalChoice == 1 or after individual choice)
+        DeleteFileW(dest);
+    }
+    
     if (!MoveFileW(src, dest)) {
         MessageBoxW(NULL, L"移动文件失败", L"错误", MB_ICONERROR);
         ExitProcess(1);
