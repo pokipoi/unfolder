@@ -1,0 +1,10 @@
+^D:\USERS\KIUOLATA\DESKTOP\WORKING\CODING\UNFOLDER\CPP_VER\BUILD\CMAKEFILES\AE3581E76CFF303053C00844C0252324\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/Users/KIUOLATA/Desktop/working/coding/unfolder/cpp_ver -BD:/Users/KIUOLATA/Desktop/working/coding/unfolder/cpp_ver/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Users/KIUOLATA/Desktop/working/coding/unfolder/cpp_ver/build/unfolder.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\Users\KIUOLATA\Desktop\working\coding\unfolder\cpp_ver\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\Users\KIUOLATA\Desktop\working\coding\unfolder\cpp_ver\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="D:\Users\KIUOLATA\Desktop\working\coding\unfolder\cpp_ver\src\unfolder.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{DF65F78F-44F9-31EE-BE8D-73C5B3DDCF5C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

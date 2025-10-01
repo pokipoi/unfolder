@@ -1,0 +1,10 @@
+^D:\USERS\KIUOLATA\DESKTOP\WORKING\CODING\UNFOLDER\CPP_VER\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/Users/KIUOLATA/Desktop/working/coding/unfolder/cpp_ver -BD:/Users/KIUOLATA/Desktop/working/coding/unfolder/cpp_ver/build --check-stamp-file D:/Users/KIUOLATA/Desktop/working/coding/unfolder/cpp_ver/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
