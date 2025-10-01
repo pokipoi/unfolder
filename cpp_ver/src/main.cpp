@@ -81,6 +81,100 @@ void EnableDPIAwareness() {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 }
 
+// Process multiple folders at once
+struct FolderProcessResult {
+    int successCount;
+    int failureCount;
+    std::wstring errorMessages;
+};
+
+FolderProcessResult ProcessMultipleFolders(const std::vector<std::wstring>& folderPaths) {
+    FolderProcessResult result = {0, 0, L""};
+    
+    // Collect all files from all folders
+    std::wstring fromPaths;
+    std::wstring toPaths;
+    std::vector<fs::path> foldersToDelete;
+    
+    for (const auto& pathStr : folderPaths) {
+        fs::path folderPath = pathStr;
+        
+        if (!fs::exists(folderPath) || !fs::is_directory(folderPath)) {
+            result.errorMessages += L"• " + folderPath.wstring() + L" (not a valid folder)\n";
+            result.failureCount++;
+            continue;
+        }
+        
+        fs::path parent = folderPath.parent_path();
+        bool hasFiles = false;
+        
+        try {
+            for (const auto& entry : fs::directory_iterator(folderPath)) {
+                hasFiles = true;
+                fromPaths += entry.path().wstring() + L'\0';
+                toPaths += (parent / entry.path().filename()).wstring() + L'\0';
+            }
+            
+            if (hasFiles) {
+                foldersToDelete.push_back(folderPath);
+            }
+        } catch (const std::exception&) {
+            result.errorMessages += L"• " + folderPath.wstring() + L" (failed to read folder)\n";
+            result.failureCount++;
+        }
+    }
+    
+    // If we have files to move, do it all at once
+    if (!fromPaths.empty()) {
+        fromPaths += L'\0';
+        toPaths += L'\0';
+        
+        SHFILEOPSTRUCTW fileOp = { 0 };
+        fileOp.wFunc = FO_MOVE;
+        fileOp.pFrom = fromPaths.c_str();
+        fileOp.pTo = toPaths.c_str();
+        fileOp.fFlags = FOF_ALLOWUNDO | FOF_MULTIDESTFILES;
+        
+        int moveResult = SHFileOperationW(&fileOp);
+        
+        if (moveResult == 0 && !fileOp.fAnyOperationsAborted) {
+            // Delete empty folders
+            for (const auto& folder : foldersToDelete) {
+                try {
+                    if (fs::is_empty(folder)) {
+                        std::wstring folderStr = folder.wstring() + L'\0' + L'\0';
+                        SHFILEOPSTRUCTW delOp = { 0 };
+                        delOp.wFunc = FO_DELETE;
+                        delOp.pFrom = folderStr.c_str();
+                        delOp.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION;
+                        
+                        if (SHFileOperationW(&delOp) == 0) {
+                            result.successCount++;
+                        } else {
+                            result.errorMessages += L"• " + folder.wstring() + L" (failed to delete folder)\n";
+                            result.failureCount++;
+                        }
+                    } else {
+                        result.errorMessages += L"• " + folder.wstring() + L" (folder not empty after move)\n";
+                        result.failureCount++;
+                    }
+                } catch (const std::exception&) {
+                    result.errorMessages += L"• " + folder.wstring() + L" (error checking folder)\n";
+                    result.failureCount++;
+                }
+            }
+        } else {
+            // Move operation failed or was aborted
+            for (const auto& folder : foldersToDelete) {
+                result.errorMessages += L"• " + folder.wstring() + L" (move operation failed or cancelled)\n";
+                result.failureCount++;
+            }
+        }
+    }
+    
+    return result;
+}
+
 // Read config file
 bool ReadConfig(const std::wstring& configPath, const std::wstring& key) {
     std::wifstream configFile(configPath);
@@ -236,38 +330,21 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     fs::path configPath = fs::path(exePath).remove_filename() / "config.ini";
     bool successPopup = ReadConfig(configPath, L"SuccessPopup");
 
-    // Process all folders
-    int successCount = 0;
-    int failureCount = 0;
-    std::wstring errorMessages;
-
-    for (const auto& pathStr : allPaths) {
-        fs::path folderPath = pathStr;
-
-        if (!fs::is_directory(folderPath)) {
-            errorMessages += L"• " + folderPath.wstring() + L" (not a valid folder)\n";
-            failureCount++;
-            continue;
-        }
-
-        if (MoveFolderContents(folderPath)) {
-            successCount++;
-        } else {
-            errorMessages += L"• " + folderPath.wstring() + L" (failed to move files)\n";
-            failureCount++;
-        }
-    }
+    // Process all folders at once
+    auto result = ProcessMultipleFolders(allPaths);
 
     // Display results
-    if (failureCount == 0 && successPopup) {
+    if (result.failureCount == 0 && successPopup) {
         std::wstringstream msgStream;
-        msgStream << L"Successfully processed " << successCount << L" folder(s).";
+        msgStream << L"Successfully processed " << result.successCount << L" folder(s).";
         MessageBoxW(NULL, msgStream.str().c_str(), L"Completed", MB_OK | MB_ICONINFORMATION);
-    } else if (failureCount > 0) {
+    } else if (result.failureCount > 0 || !result.errorMessages.empty()) {
         std::wstringstream msgStream;
-        msgStream << L"Success: " << successCount << L"\n";
-        msgStream << L"Failed: " << failureCount << L"\n\n";
-        msgStream << L"Failed folders:\n" << errorMessages;
+        msgStream << L"Success: " << result.successCount << L"\n";
+        msgStream << L"Failed: " << result.failureCount << L"\n\n";
+        if (!result.errorMessages.empty()) {
+            msgStream << L"Failed folders:\n" << result.errorMessages;
+        }
         MessageBoxW(NULL, msgStream.str().c_str(), L"Partial Success", MB_OK | MB_ICONWARNING);
     }
 
