@@ -49,7 +49,7 @@ bool MoveFilesToParent(const std::vector<fs::path>& files, const fs::path& paren
     if (result == 0) {
         return true; // 移动成功
     } else {
-        std::wcout << L"文件未移动: " << fromPaths << L"\n"; // 记录未移动的文件
+        std::wcout << L"file not moved: " << fromPaths << L"\n"; // 记录未移动的文件
         return false; // 失败（用户可能选择了跳过）
     }
 }
@@ -100,7 +100,8 @@ FolderProcessResult ProcessMultipleFolders(const std::vector<std::wstring>& fold
         fs::path folderPath = pathStr;
         
         if (!fs::exists(folderPath) || !fs::is_directory(folderPath)) {
-            result.errorMessages += L"• " + folderPath.wstring() + L" (not a valid folder)\n";
+            result.errorMessages += folderPath.wstring() + L"\n";
+            result.errorMessages += L"  Reason: Not a valid folder\n\n";
             result.failureCount++;
             continue;
         }
@@ -119,7 +120,8 @@ FolderProcessResult ProcessMultipleFolders(const std::vector<std::wstring>& fold
                 foldersToDelete.push_back(folderPath);
             }
         } catch (const std::exception&) {
-            result.errorMessages += L"• " + folderPath.wstring() + L" (failed to read folder)\n";
+            result.errorMessages += folderPath.wstring() + L"\n";
+            result.errorMessages += L"  Reason: Failed to read folder\n\n";
             result.failureCount++;
         }
     }
@@ -151,22 +153,26 @@ FolderProcessResult ProcessMultipleFolders(const std::vector<std::wstring>& fold
                         if (SHFileOperationW(&delOp) == 0) {
                             result.successCount++;
                         } else {
-                            result.errorMessages += L"• " + folder.wstring() + L" (failed to delete folder)\n";
+                            result.errorMessages += folder.wstring() + L"\n";
+                            result.errorMessages += L"  Reason: Failed to delete folder\n\n";
                             result.failureCount++;
                         }
                     } else {
-                        result.errorMessages += L"• " + folder.wstring() + L" (folder not empty after move)\n";
+                        result.errorMessages += folder.wstring() + L"\n";
+                        result.errorMessages += L"  Reason: Folder not empty after move\n\n";
                         result.failureCount++;
                     }
                 } catch (const std::exception&) {
-                    result.errorMessages += L"• " + folder.wstring() + L" (error checking folder)\n";
+                    result.errorMessages += folder.wstring() + L"\n";
+                    result.errorMessages += L"  Reason: Error checking folder\n\n";
                     result.failureCount++;
                 }
             }
         } else {
             // Move operation failed or was aborted
             for (const auto& folder : foldersToDelete) {
-                result.errorMessages += L"• " + folder.wstring() + L" (move operation failed or cancelled)\n";
+                result.errorMessages += folder.wstring() + L"\n";
+                result.errorMessages += L"  Reason: Move operation failed or cancelled\n\n";
                 result.failureCount++;
             }
         }
@@ -339,13 +345,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         msgStream << L"Successfully processed " << result.successCount << L" folder(s).";
         MessageBoxW(NULL, msgStream.str().c_str(), L"Completed", MB_OK | MB_ICONINFORMATION);
     } else if (result.failureCount > 0 || !result.errorMessages.empty()) {
-        std::wstringstream msgStream;
-        msgStream << L"Success: " << result.successCount << L"\n";
-        msgStream << L"Failed: " << result.failureCount << L"\n\n";
+        std::wstring message = L"Success: " + std::to_wstring(result.successCount) + L"\n";
+        message += L"Failed: " + std::to_wstring(result.failureCount) + L"\n\n";
         if (!result.errorMessages.empty()) {
-            msgStream << L"Failed folders:\n" << result.errorMessages;
+            message += L"Failed folders:\n";
+            message += result.errorMessages;
         }
-        MessageBoxW(NULL, msgStream.str().c_str(), L"Partial Success", MB_OK | MB_ICONWARNING);
+        MessageBoxW(NULL, message.c_str(), L"Partial Success", MB_OK | MB_ICONWARNING);
     }
 
     // Cleanup
